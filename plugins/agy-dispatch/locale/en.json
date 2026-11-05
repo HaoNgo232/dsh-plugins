@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "AGY Dispatch",
+    "description": "Runs self-contained tasks through the Antigravity agy CLI and returns its answer."
+  }
+}

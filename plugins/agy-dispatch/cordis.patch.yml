@@ -1,0 +1,6 @@
+# Inserts the agy dispatch tool into this profile.
+# Tune it by adding config keys under the entry below; defaults live in index.js.
+- insert:
+    - id: agy-dispatch
+      name: '@local/agy-dispatch'
+      config: {}

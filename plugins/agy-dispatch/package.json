@@ -1,0 +1,24 @@
+{
+  "name": "@local/agy-dispatch",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dispatch tasks to the Antigravity agy CLI from DSH agents",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaoNgo232/dsh-plugins.git",
+    "directory": "plugins/agy-dispatch"
+  },
+  "homepage": "https://github.com/HaoNgo232/dsh-plugins/tree/main/plugins/agy-dispatch",
+  "keywords": ["dsh-plugin", "deepseek-harness", "antigravity", "agy", "agent"],
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["index.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"],
+  "license": "MIT",
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  }
+}
