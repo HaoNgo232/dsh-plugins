@@ -43,6 +43,28 @@ budget stays exactly 200k on a large-window route and degrades to a safe
 fraction on a route that cannot hold it. The configured value, the clamped value
 and the current pressure are all reported by the tool.
 
+## Settings page (GUI)
+
+The bundle ships a Client half, so the trigger is configurable without chat or
+YAML: **Settings** (sidebar foot) → **Compaction**. The page shows the effective
+budget, the model window, live context pressure of the busiest session, and the
+trigger/compaction/prune counters; it edits the trigger budget (with presets),
+the retained tail, `enabled` and `pruneFirst`, and offers **Compact now** and
+**Reset to defaults**.
+
+Transport: the Host half registers three same-origin routes and the page fetches
+them — no RPC plumbing in the bundle:
+
+| Route | Method | Meaning |
+| --- | --- | --- |
+| `/auto-compact/status` | GET | config, defaults, effective budget, per-session pressure, counters, last trigger/compaction |
+| `/auto-compact/config` | POST | write the runtime override (`thresholdTokens`, `retainTokens`, `enabled`, `pruneFirst`, or `reset: true`) — validated before it touches disk |
+| `/auto-compact/compact` | POST | condense the busiest live session now |
+
+Writes are guarded by a loopback-Host + same-origin check (the same CSRF rule
+the harness settings routes apply), and both the page and the `auto_compact`
+tool write the same override document, so there is one source of truth.
+
 ## Runtime tuning (no restart)
 
 The trigger re-reads `$DSH_HOME/auto-compact.json` at most once per second:

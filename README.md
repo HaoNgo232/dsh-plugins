@@ -8,7 +8,7 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | --- | --- |
 | [`agy-dispatch`](plugins/agy-dispatch) | Registers `agy_dispatch`: runs a self-contained task through the Antigravity `agy` CLI (print mode), lets agy browse, run commands, edit files and produce images, and returns its final answer plus the agy conversation id. |
 | [`session-cost`](plugins/session-cost) | Adds the live `≈$` cost badge to the composer status row (session cost, cost by model, recent tasks, OpenCode Go 5h/week/month windows and month-vs-limit bar), plus the `session_cost` tool for session, per-task (turn), and per-request breakdowns. Prices come from the OpenCode Go table with peak/off-peak and tiered entries. |
-| [`auto-compact`](plugins/auto-compact) | Compacts the context at an absolute token budget instead of the shipped window ratio (`thresholdTokens`, default `200000`): a pre-step listener measures the session, trims oversized tool output first, and condenses the oldest region until pressure is back under budget. Tune it live with the `auto_compact` tool (`status` / `set` / `compact`), persisted to `$DSH_HOME/auto-compact.json`. |
+| [`auto-compact`](plugins/auto-compact) | Compacts the context at an absolute token budget instead of the shipped window ratio (`thresholdTokens`, default `200000`): a pre-step listener measures the session, trims oversized tool output first, and condenses the oldest region until pressure is back under budget. Configure it in **Settings → Compaction** (shipped Client half), with the `auto_compact` tool (`status` / `set` / `compact`), or in YAML; live values persist to `$DSH_HOME/auto-compact.json`. |
 
 ## Layout
 

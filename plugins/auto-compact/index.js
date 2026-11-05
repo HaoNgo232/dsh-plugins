@@ -28,7 +28,7 @@
  * is re-read (1s cache) on every step, and the `auto_compact` tool can write it.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 
@@ -437,31 +437,19 @@ export function apply(ctx, rawConfig = {}) {
       const agent = exec.agent
       const action = args?.action ?? 'status'
       if (action === 'set') {
-        const file = overridePath()
-        const previous = readOverride().value ?? {}
-        const next = args?.reset === true
-          ? {}
-          : {
+        if (args?.reset === true) {
+          writeOverride({}, true)
+        } else {
+          const previous = readOverride().value ?? {}
+          const next = {
             ...previous,
             ...(args?.threshold_tokens === undefined ? {} : { thresholdTokens: args.threshold_tokens }),
             ...(args?.retain_tokens === undefined ? {} : { retainTokens: args.retain_tokens }),
             ...(args?.enabled === undefined ? {} : { enabled: args.enabled }),
           }
-        normalizeConfig(next, 'override')
-        if (Object.keys(next).length === 0) {
-          try {
-            writeFileSync(file, '{}\n', 'utf8')
-          } catch (error) {
-            throw new Error(`auto-compact: cannot write ${file}: ${error instanceof Error ? error.message : String(error)}`)
-          }
-        } else {
-          try {
-            writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
-          } catch (error) {
-            throw new Error(`auto-compact: cannot write ${file}: ${error instanceof Error ? error.message : String(error)}`)
-          }
+          normalizeConfig(next, 'override')
+          writeOverride(next, false)
         }
-        overrideCache = { at: 0, value: null, error: undefined, path: '' }
       }
       if (action === 'compact') {
         if (agent === undefined) throw new Error('auto_compact compact requires a calling agent')
@@ -482,6 +470,155 @@ export function apply(ctx, rawConfig = {}) {
       }
       return collectStatus(ctx, agent, config, overridePath(), args)
     },
+  })
+
+  // -- Settings page transport (Client half fetches these same-origin routes) --
+
+  function pageSnapshot() {
+    const { config: live, override } = currentConfig(config)
+    const sessions = []
+    const agents = ctx.get('agents')
+    if (agents !== undefined && typeof agents.list === 'function') {
+      for (const agent of agents.list()) {
+        const session = agent?.session
+        const meter = session === undefined ? undefined : serviceFor(ctx, agent, 'tokenMeter')
+        if (session === undefined || meter === undefined) continue
+        let pressure = 0
+        try {
+          pressure = meter.measure(session).totalTokens
+        } catch {
+          continue
+        }
+        const requestContext = session.requestContext?.()
+        sessions.push({
+          session_id: session.id ?? '',
+          pressure_tokens: pressure,
+          context_window: isPositiveInteger(requestContext?.contextWindow) ? requestContext.contextWindow : null,
+        })
+      }
+    }
+    sessions.sort((a, b) => b.pressure_tokens - a.pressure_tokens)
+    const busiest = sessions[0]
+    const contextWindow = busiest?.context_window ?? undefined
+    const effectiveThreshold = contextWindow === undefined
+      ? live.thresholdTokens
+      : Math.min(live.thresholdTokens, Math.floor(contextWindow * live.capRatio))
+    return {
+      config: {
+        threshold_tokens: live.thresholdTokens,
+        retain_tokens: live.retainTokens,
+        max_attempts: live.maxAttempts,
+        cap_ratio: live.capRatio,
+        prune_first: live.pruneFirst,
+        enabled: live.enabled,
+      },
+      defaults: {
+        threshold_tokens: DEFAULT_CONFIG.thresholdTokens,
+        retain_tokens: DEFAULT_CONFIG.retainTokens,
+        prune_first: DEFAULT_CONFIG.pruneFirst,
+        enabled: DEFAULT_CONFIG.enabled,
+      },
+      effective_threshold_tokens: effectiveThreshold,
+      pressure_tokens: busiest?.pressure_tokens ?? null,
+      context_window: contextWindow ?? null,
+      sessions: sessions.slice(0, 5),
+      counters: {
+        checks: state.checks,
+        triggers: state.triggers,
+        compactions: state.compactions,
+        pruned: state.pruned,
+        skipped: state.skipped,
+      },
+      last_trigger: state.lastTrigger ?? null,
+      last_compaction: state.lastCompaction ?? null,
+      last_error: state.lastError ?? null,
+      override_path: overridePath(),
+      override_active: override.value !== null,
+      override_error: override.error ?? null,
+    }
+  }
+
+  async function compactNowFromUi() {
+    const agents = ctx.get('agents')
+    const candidates = typeof agents?.list === 'function' ? agents.list() : []
+    const target = candidates.find((agent) => agent?.session !== undefined)
+    if (target === undefined) throw new Error('no live session to compact')
+    const compaction = serviceFor(ctx, target, 'compaction')
+    if (compaction === undefined) throw new Error('no compaction backend in this session composition')
+    const result = await compaction.compactNow(target, new AbortController().signal)
+    state.compactions += 1
+    state.lastCompaction = {
+      at: Date.now(),
+      session_id: target.session?.id ?? null,
+      tokens_before: null,
+      tokens_after: null,
+      freed_tokens: null,
+      shadowed_tokens: result?.shadowedTokenCount ?? null,
+      summary_seq: result?.summarySeq ?? null,
+    }
+    return { ok: true, shadowed_tokens: result?.shadowedTokenCount ?? null, summary_seq: result?.summarySeq ?? null }
+  }
+
+  ctx.inject(['webServer'], (host) => {
+    host.effect(() => {
+      const disposers = [
+        host.webServer.register({
+          kind: 'exact',
+          path: '/auto-compact/status',
+          handler: async (request, response) => {
+            if (request.method !== 'GET') {
+              sendJson(response, 405, { error: 'method not allowed' })
+              return
+            }
+            sendJson(response, 200, pageSnapshot())
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/auto-compact/config',
+          handler: async (request, response) => {
+            if (!trustedPost(request, response)) return
+            try {
+              const body = await readJsonBody(request)
+              const document = typeof body === 'object' && body !== null ? body : {}
+              if (document.reset === true) {
+                writeOverride({}, true)
+                sendJson(response, 200, pageSnapshot())
+                return
+              }
+              const patch = {}
+              for (const key of ['thresholdTokens', 'retainTokens', 'pruneFirst', 'enabled']) {
+                if (document[key] !== undefined) patch[key] = document[key]
+              }
+              if (Object.keys(patch).length === 0) {
+                sendJson(response, 400, { error: 'no recognized field in the request body' })
+                return
+              }
+              normalizeConfig({ ...(readOverride().value ?? {}), ...patch }, 'override')
+              writeOverride(patch, false)
+              sendJson(response, 200, pageSnapshot())
+            } catch (error) {
+              sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) })
+            }
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/auto-compact/compact',
+          handler: async (request, response) => {
+            if (!trustedPost(request, response)) return
+            try {
+              sendJson(response, 200, await compactNowFromUi())
+            } catch (error) {
+              sendJson(response, 409, { error: error instanceof Error ? error.message : String(error) })
+            }
+          },
+        }),
+      ]
+      return () => {
+        for (const dispose of disposers) dispose()
+      }
+    }, 'auto-compact: settings routes')
   })
 
   function collectStatus(ctxValue, agent, configValue, file, args) {
@@ -531,6 +668,85 @@ export function apply(ctx, rawConfig = {}) {
     }
     return value
   }
+}
+
+/** Merge `patch` into the override document and persist it; `reset` removes the document. */
+function writeOverride(patch, reset) {
+  const file = overridePath()
+  const next = reset === true ? {} : { ...(readOverride().value ?? {}), ...patch }
+  try {
+    if (reset === true) {
+      rmSync(file, { force: true })
+    } else {
+      writeFileSync(file, Object.keys(next).length === 0 ? '{}\n' : `${JSON.stringify(next, null, 2)}\n`, 'utf8')
+    }
+  } catch (error) {
+    throw new Error(`auto-compact: cannot write ${file}: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  overrideCache = { at: 0, value: null, error: undefined, path: '' }
+  return next
+}
+
+const BODY_LIMIT_BYTES = 8192
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+function sendJson(response, status, value) {
+  response.writeHead(status, { 'cache-control': 'no-store', 'content-type': 'application/json; charset=utf-8' })
+  response.end(JSON.stringify(value))
+}
+
+function loopbackAuthority(authority) {
+  try {
+    const parsed = new URL(`http://${authority}`)
+    if (!LOOPBACK_HOSTNAMES.has(parsed.hostname.toLowerCase())) return null
+    return `loopback:${parsed.port === '' ? '80' : parsed.port}`
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Source check for state-changing writes: loopback Host plus same-port Origin,
+ * the Electron `dsh-app:` page protocol, or no Origin at all (native clients).
+ * This is the whole CSRF defense, mirroring what the harness settings routes do.
+ */
+function isTrustedRequest(request) {
+  const host = request.headers.host
+  const hostKey = host === undefined ? null : loopbackAuthority(host)
+  if (hostKey === null) return false
+  const origin = request.headers.origin
+  if (origin === undefined || origin === '') return true
+  try {
+    const url = new URL(origin)
+    if (url.protocol === 'dsh-app:') return true
+    return loopbackAuthority(url.host) === hostKey
+  } catch {
+    return false
+  }
+}
+
+function trustedPost(request, response) {
+  if (request.method !== 'POST') {
+    sendJson(response, 405, { error: 'method not allowed' })
+    return false
+  }
+  if (isTrustedRequest(request)) return true
+  sendJson(response, 403, { error: 'untrusted origin' })
+  return false
+}
+
+async function readJsonBody(request) {
+  const chunks = []
+  let size = 0
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    size += buffer.length
+    if (size > BODY_LIMIT_BYTES) throw new Error('request body too large')
+    chunks.push(buffer)
+  }
+  const text = Buffer.concat(chunks).toString('utf8').trim()
+  if (text.length === 0) return {}
+  return JSON.parse(text)
 }
 
 function formatTokens(value) {
