@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Ngưỡng tự nén ngữ cảnh",
+    "description": "Tự nén phần hội thoại cũ khi context đạt mốc token cố định (mặc định 200k), sớm hơn ngưỡng theo tỉ lệ của engine gốc. Ngưỡng chỉnh được lúc chạy và xem bằng tool auto_compact."
+  }
+}
