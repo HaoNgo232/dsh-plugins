@@ -29,7 +29,45 @@ needed for Host-only plugins, so every folder stays installable on its own.
 
 ## Install a plugin
 
-From a dsh session (this installs into the current profile and activates it):
+### From the command line
+
+```sh
+./bin/plugin available                   # bundles in this checkout
+./bin/plugin list                        # what the desktop profile activates
+./bin/plugin --profile desktop add auto-compact
+./bin/plugin --profile desktop add dshmarket          # any pnpm spec
+./bin/plugin --profile desktop add ./plugins/session-cost
+./bin/plugin --profile desktop remove auto-compact
+```
+
+To get a bare `plugin` command, put `bin/plugin.cmd` (Windows) or `bin/plugin`
+on `PATH`, or install this repository as a global CLI:
+
+```sh
+npm i -g github:HaoNgo232/dsh-plugins
+```
+
+What it does that `dsh plugin` does not: `dsh plugin --profile <name> add <pkg>`
+only forwards to pnpm inside the profile, so the package lands in `node_modules`
+but the profile never activates it. This CLI also appends the package to
+`dsh.profile.bundles` in the profile's `package.json`, which is the activation
+list, and reports packages without `dsh.bundle.patch` as inactive instead of
+pretending they loaded.
+
+Details worth knowing:
+
+- A bare name resolves to `plugins/<name>` in this checkout and installs as a
+  `link:`, so editing the bundle takes effect without reinstalling. Set
+  `DSH_PLUGINS_DIR` to use a different checkout.
+- It prefers the pnpm bundled with the DeepSeek Harness runtime over a global
+  pnpm. A profile's `node_modules` pins a pnpm store major version, and another
+  pnpm refuses to touch it with `ERR_PNPM_UNEXPECTED_STORE`. Override with
+  `DSH_PNPM=<path to pnpm or pnpm.cjs>`.
+- Profile resolution: `--profile <name>`, else `$DSH_PROFILE`, else `desktop`.
+- Restart the app afterwards to load the new bundle; the in-app Plugin manager
+  applies changes without a restart.
+
+### From a dsh session
 
 ```
 plugin_manager action=install_bundle target=<absolute path to plugins/<name>>

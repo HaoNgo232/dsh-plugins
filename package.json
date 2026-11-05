@@ -1,0 +1,36 @@
+{
+  "name": "dsh-plugins-cli",
+  "version": "1.0.0",
+  "description": "Command-line installer for the DeepSeek Harness plugin bundles in this repository",
+  "license": "MIT",
+  "bin": {
+    "plugin": "bin/plugin.mjs"
+  },
+  "files": [
+    "bin",
+    "plugins/*/index.js",
+    "plugins/*/client.js",
+    "plugins/*/cordis.patch.yml",
+    "plugins/*/package.json",
+    "plugins/*/locale/*.json",
+    "plugins/*/icon.svg",
+    "plugins/*/README.md",
+    "plugins/*/pricing.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaoNgo232/dsh-plugins.git"
+  },
+  "homepage": "https://github.com/HaoNgo232/dsh-plugins",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "cli"
+  ],
+  "scripts": {
+    "plugin": "node bin/plugin.mjs"
+  }
+}
