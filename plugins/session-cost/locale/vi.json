@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session Cost",
+    "description": "Báo cáo token và chi phí USD ước tính theo session, theo task (turn) và theo từng request."
+  }
+}

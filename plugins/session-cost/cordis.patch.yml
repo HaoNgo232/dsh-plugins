@@ -1,0 +1,6 @@
+# Inserts the session cost tool into this profile.
+# Prices and overrides live under config; see README.md.
+- insert:
+    - id: session-cost
+      name: '@local/session-cost'
+      config: {}

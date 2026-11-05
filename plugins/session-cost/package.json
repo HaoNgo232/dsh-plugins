@@ -1,0 +1,24 @@
+{
+  "name": "@local/session-cost",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Session cost tracking for DeepSeek Harness: tokens and USD per session, per task (turn), and per request",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaoNgo232/dsh-plugins.git",
+    "directory": "plugins/session-cost"
+  },
+  "homepage": "https://github.com/HaoNgo232/dsh-plugins/tree/main/plugins/session-cost",
+  "keywords": ["dsh-plugin", "deepseek-harness", "cost", "usage", "opencode-go"],
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["index.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"],
+  "license": "MIT",
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  }
+}

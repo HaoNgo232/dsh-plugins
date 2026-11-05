@@ -7,6 +7,7 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | Plugin | What it does |
 | --- | --- |
 | [`agy-dispatch`](plugins/agy-dispatch) | Registers `agy_dispatch`: runs a self-contained task through the Antigravity `agy` CLI (print mode), lets agy browse, run commands, edit files and produce images, and returns its final answer plus the agy conversation id. |
+| [`session-cost`](plugins/session-cost) | Registers `session_cost`: folds the session log and reports token usage plus estimated USD cost for the session, per task (turn), and per request, using an OpenCode Go price table with peak/off-peak and tiered prices. |
 
 ## Layout
 

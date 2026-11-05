@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session Cost",
+    "description": "Reports token usage and estimated USD cost per session, per task (turn), and per request."
+  }
+}
