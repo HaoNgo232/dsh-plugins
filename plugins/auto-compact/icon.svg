@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Auto compaction threshold">
-  <rect x="1" y="1" width="30" height="30" rx="8" fill="#101a26" stroke="#3f5b7a" stroke-width="1.5" />
-  <path d="M9 9h14" stroke="#7fc4ff" stroke-width="2.2" stroke-linecap="round" />
-  <path d="M9 23h14" stroke="#7fc4ff" stroke-width="2.2" stroke-linecap="round" />
-  <path d="M16 12.5V19.5" stroke="#9ae6a4" stroke-width="2.2" stroke-linecap="round" />
-  <path d="M12.6 15.9 16 12.5l3.4 3.4" fill="none" stroke="#9ae6a4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M12.6 16.1 16 19.5l3.4-3.4" fill="none" stroke="#9ae6a4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.55" />
-</svg>

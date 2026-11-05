@@ -1,6 +1,0 @@
-{
-  "meta": {
-    "title": "Auto Compaction Threshold",
-    "description": "Condenses older conversation once the live context reaches a fixed token budget (200k by default), ahead of the shipped ratio-based trigger. Threshold is tunable at runtime and reported by the auto_compact tool."
-  }
-}
