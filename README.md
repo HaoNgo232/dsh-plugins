@@ -7,16 +7,17 @@ Plugins for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 
 | Plugin | What it does |
 | --- | --- |
 | [`agy-dispatch`](plugins/agy-dispatch) | Registers `agy_dispatch`: runs a self-contained task through the Antigravity `agy` CLI (print mode), lets agy browse, run commands, edit files and produce images, and returns its final answer plus the agy conversation id. |
-| [`session-cost`](plugins/session-cost) | Registers `session_cost`: folds the session log and reports token usage plus estimated USD cost for the session, per task (turn), and per request, using an OpenCode Go price table with peak/off-peak and tiered prices. |
+| [`session-cost`](plugins/session-cost) | Adds the live `≈$` cost badge to the composer status row (session cost, cost by model, recent tasks, OpenCode Go 5h/week/month windows and month-vs-limit bar), plus the `session_cost` tool for session, per-task (turn), and per-request breakdowns. Prices come from the OpenCode Go table with peak/off-peak and tiered entries. |
 
 ## Layout
 
 ```
 plugins/
   <name>/              an installable dsh bundle
-    package.json       dsh.bundle.patch + exports (runtime, locale, icon)
+    package.json       dsh.bundle.patch + exports (runtime, client, locale, icon)
     cordis.patch.yml   the Loader row(s) the bundle inserts
     index.js           Host plugin (plain ESM, no build step)
+    client.js          optional Web UI half (window.__ModuleLoader__ factory)
     locale/*.json      meta.title / meta.description per locale
     icon.svg           plugin icon
     README.md          usage, parameters, config

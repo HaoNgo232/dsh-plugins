@@ -2,12 +2,34 @@
 
 Source: <https://github.com/HaoNgo232/dsh-plugins/tree/main/plugins/session-cost>
 
-A DSH Host bundle that registers the `session_cost` tool. It folds the current
-session log and reports token usage plus estimated USD cost at three levels:
+A DSH bundle with two halves:
+
+- a **Host** plugin that registers the `session_cost` tool and a `sessionCost`
+  session projection (the live numbers), and
+- a **Client** plugin that renders the live cost badge in the composer status
+  row.
+
+It folds the current session log and reports token usage plus estimated USD
+cost at three levels:
 
 - **session** — one total for the whole session
 - **per task (turn)** — each user prompt/turn, with a preview of the prompt
 - **per request** — every model call, with model, tokens, and cost
+
+## Live badge
+
+The composer status row (`conversation.composer.dock`) gets a `≈$0.513` button
+next to the shipped `usage` entry. Clicking it opens a panel with:
+
+- session total, request count, tokens, cache-hit rate
+- cost by model
+- the five most recent tasks with their cost
+- OpenCode Go usage windows (5-hour / weekly / monthly, all sessions)
+- this month's per-model spend against the Go monthly limit, with a bar
+
+The badge is driven by the `sessionCost` projection, so it updates from the
+session log as turns run instead of re-scanning files. It stays hidden until
+the session has made at least one priced request.
 
 ## How the numbers are derived
 
@@ -30,9 +52,12 @@ session log and reports token usage plus estimated USD cost at three levels:
 | --- | --- | --- |
 | `detail` | `summary` \| `turns` \| `requests` \| `all` | How much to render. Default `all`. |
 | `requests_limit` | number | Newest request rows to render. Default 40. |
+| `debug` | boolean | Appends the live `sessionCost` projection value and the registered client bundle path; also refreshes the served client bundle when its bytes changed. |
 
 The tool returns the full session totals, per-model totals, per-turn rows, and
-the newest request rows. It reports the current session only.
+the newest request rows, plus OpenCode Go plan windows (`5h`, `week`, `month`)
+folded over every session log on the machine (subagents excluded). It reports
+the current session for the per-level numbers.
 
 ## Config
 
@@ -66,8 +91,9 @@ An entry is one of:
 - The session log's `assistant/message` events carry the usage this plugin
   folds; aborted requests with no `usage` contribute nothing.
 - Subagent sessions are separate logs and are not included.
-- The current plan's monthly allowance (Go / Go Plus / Go Teams) is not
-  modelled; only API-equivalent cost is.
+- The monthly limit is the published Go allowance per model
+  (`deepseek-v4.1-flash` = $100), not the live allowance on your account;
+  treat the bar as a planning estimate.
 
 ## Install
 
