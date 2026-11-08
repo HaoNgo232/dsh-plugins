@@ -196,6 +196,9 @@ function scanBaseline({ sessionsDir, excludeSessionId, prices, now }) {
 export function collectSessionCost(session, options = {}) {
   const events = typeof session.ownEvents === 'function' ? session.ownEvents() : session.snapshotEvents?.() ?? []
   const prices = options.prices ?? mergePrices(undefined)
+  const now = typeof options.now === 'number' ? options.now : Date.now()
+  const monthStart = startOfUtcMonth(now)
+  const windows = { fiveHourUsd: 0, weekUsd: 0, monthUsd: 0 }
   const turnPreview = new Map()
   let pendingPreview = ''
   const requests = []
@@ -222,11 +225,14 @@ export function collectSessionCost(session, options = {}) {
         if (usage === null || usage === undefined) break
         const source = data.message?.source ?? {}
         const provider = isNonEmptyString(source.provider) ? source.provider : ''
-        const model = isNonEmptyString(source.model) ? source.model : ''
+        const model = normalizeModel(isNonEmptyString(source.model) ? source.model : '')
         const timeMs = typeof event.time === 'number' ? event.time : Date.now()
         const tokens = tokensOf(usage)
         const priced = costOf({ model, timeMs, usage, prices })
         if (!priced.priced) unpriced.add(model.length > 0 ? model : '(unknown)')
+        if (timeMs >= now - FIVE_HOUR_MS) windows.fiveHourUsd += priced.cost
+        if (timeMs >= now - WEEK_MS) windows.weekUsd += priced.cost
+        if (timeMs >= monthStart) windows.monthUsd += priced.cost
         requests.push({
           turn: typeof data.turn === 'number' ? data.turn : 0,
           step: typeof data.step === 'number' ? data.step : 0,
@@ -285,6 +291,7 @@ export function collectSessionCost(session, options = {}) {
   return {
     totalTokens: totalOf(totals),
     totals,
+    windows,
     requests,
     turns,
     models: [...modelMap.values()].sort((a, b) => b.cost - a.cost).map((entry) => ({
@@ -424,7 +431,7 @@ function applyProjectionEvent(state, event, prices) {
   if (usage === null || usage === undefined) return state
   const source = data.message?.source ?? {}
   const provider = isNonEmptyString(source.provider) ? source.provider : ''
-  const model = isNonEmptyString(source.model) ? source.model : ''
+  const model = normalizeModel(isNonEmptyString(source.model) ? source.model : '')
   const key = model.length > 0 ? model : '(unknown)'
   const timeMs = typeof event.time === 'number' ? event.time : state.baselineAt
   const priced = costOf({ model, timeMs, usage, prices })
@@ -800,8 +807,8 @@ export function apply(ctx, config = {}) {
       if (agent === undefined || agent.session === undefined) {
         throw new Error('session_cost requires an agent with a session')
       }
-      const report = collectSessionCost(agent.session, { prices })
       const now = Date.now()
+      const report = collectSessionCost(agent.session, { prices, now })
       const baseline = scanBaseline({
         sessionsDir,
         excludeSessionId: agent.session.id,
@@ -812,10 +819,13 @@ export function apply(ctx, config = {}) {
       for (const model of report.models) {
         monthlyMap.set(model.model, (monthlyMap.get(model.model) ?? 0) + model.cost_usd)
       }
+      // Windows are time-filtered per request, so a session's own usage is added
+      // per window instead of dumping the whole session total into each one.
+      const sessionWindows = report.windows
       report.windows = {
-        fiveHourUsd: baseline.fiveHourUsd + report.totals.cost,
-        weekUsd: baseline.weekUsd + report.totals.cost,
-        monthUsd: baseline.monthUsd + report.totals.cost,
+        fiveHourUsd: baseline.fiveHourUsd + sessionWindows.fiveHourUsd,
+        weekUsd: baseline.weekUsd + sessionWindows.weekUsd,
+        monthUsd: baseline.monthUsd + sessionWindows.monthUsd,
       }
       report.monthlyUsage = [...monthlyMap.entries()]
         .map(([model, monthUsd]) => ({

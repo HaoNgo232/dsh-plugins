@@ -31,6 +31,7 @@
     "cli"
   ],
   "scripts": {
-    "plugin": "node bin/plugin.mjs"
+    "plugin": "node bin/plugin.mjs",
+    "test": "node --test \"plugins/*/test/*.test.js\""
   }
 }
